@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">Ritmo Player</string>
+
+    <string name="music_channel_name">Music Playback</string>
+    <string name="music_channel_description" translatable="false">Music playback controls</string>
+    <string name="permission_dialog_text">جهت دسترسی به موزیک های داخل حافظه گوشی شما نیازمند تایید مجوز از سوی شما هستیم.</string>
+    <string name="permission_dialog_confirm">اجازه دادن\n</string>
+    <string name="permission_dialog_title">مجوز دسترسی به موزیک ها</string>
+</resources>
