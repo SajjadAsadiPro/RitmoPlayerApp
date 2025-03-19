@@ -1,9 +1,8 @@
 package ir.sajjadasadi.RitmoPlayer
 
+import SpeedControlDialog
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -24,6 +23,7 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -48,12 +48,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
+import com.google.android.exoplayer2.Player
 import kotlinx.coroutines.delay
+
 
 @Composable
 fun MusicControlBar(
     currentMusic: MusicItem,
-    exoPlayer: ExoPlayer,
+    exoPlayer: Player,
     musicList: List<MusicItem>,
     isLooping: Boolean,
     isShuffling: Boolean,
@@ -65,6 +67,7 @@ fun MusicControlBar(
     var totalDuration by remember { mutableStateOf(0L) }
     var isPlaying by remember { mutableStateOf(exoPlayer.isPlaying) }
     var isControlVisible by remember { mutableStateOf(true) }
+    val showDialog = remember { mutableStateOf(false) }
 
     var currentMusicState by remember { mutableStateOf(currentMusic) }
 
@@ -84,67 +87,42 @@ fun MusicControlBar(
         }
     }
 
-    exoPlayer.repeatMode = if (isLooping) ExoPlayer.REPEAT_MODE_ONE else ExoPlayer.REPEAT_MODE_OFF
+    exoPlayer.repeatMode = if (isLooping) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
     exoPlayer.shuffleModeEnabled = isShuffling
 
     Box(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)), // اعمال رنگ پس‌زمینه مشابه کنترل باکس
         contentAlignment = Alignment.BottomCenter
     ) {
-        AnimatedVisibility(
-            visible = !isControlVisible,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+        Surface(
             modifier = Modifier
-                .animateContentSize(
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
-                )
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)) // اصلاح بک‌گراند
         ) {
-            IconButton(
-                onClick = { isControlVisible = !isControlVisible },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 16.dp)
-                    .size(48.dp)
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(Color(0xFF8BC34A), Color(0xFFCDDC39)), // رنگ گرادینت
-                            start = Offset(0f, 0f),
-                            end = Offset(1000f, 1000f)
-                        ), CircleShape
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.ExpandLess,
-                    contentDescription = "Show Controls",
-                    tint = Color.White
-
-                )
-                
-            }
-        }
-
-        AnimatedVisibility(
-            visible = isControlVisible,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
-            modifier = Modifier
-                .animateContentSize(
-                    animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
-                )
-        ) {
-            Surface(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.Transparent)
+                    .animateContentSize(),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(
+                Row(
                     modifier = Modifier
-                        .background(Color.Transparent)
                         .fillMaxWidth()
-                        .animateContentSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Text(
+                        text = currentMusicState.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+
                     IconButton(
                         onClick = { isControlVisible = !isControlVisible },
                         modifier = Modifier
@@ -161,117 +139,141 @@ fun MusicControlBar(
                             )
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ExpandMore,
-                            contentDescription = "Hide Controls",
+                            imageVector = if (isControlVisible) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (isControlVisible) "Hide Controls" else "Show Controls",
                             tint = Color.White
                         )
                     }
+                }
 
-                    Card(
+                AnimatedVisibility(
+                    visible = isControlVisible,
+                    enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                    exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)) // همان رنگ پس‌زمینه
+                ) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateContentSize(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(
-                                alpha = 0.8f
-                            )
-                        )
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = currentMusicState.title,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = Color.White,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                    Text(
-                                        text = currentMusicState.artist,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        color = Color.LightGray,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-                                }
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(text = formatTime(currentPosition), color = Color.White)
-                                Text(text = formatTime(totalDuration), color = Color.White)
-                            }
-
-                            Slider(
-                                value = if (totalDuration > 0) currentPosition.toFloat() / totalDuration.toFloat() else 0f,
-                                onValueChange = { exoPlayer.seekTo((it * totalDuration).toLong()) },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = Color.White,
-                                    activeTrackColor = Color.White,
-                                    inactiveTrackColor = Color.Gray
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateContentSize(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(
+                                    alpha = 0.8f
                                 )
                             )
+                        )
+                        {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = currentMusicState.artist,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = Color.LightGray,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
 
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                IconButton(onClick = {
-                                    if (currentIndex > 0) {
-                                        currentMusicState = musicList[currentIndex - 1]
-                                        val mediaItem = MediaItem.fromUri(currentMusicState.uri)
-                                        exoPlayer.setMediaItem(mediaItem)
-                                        exoPlayer.prepare()
-                                        exoPlayer.play()
-                                        onMusicChanged(currentMusicState)
                                     }
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.SkipPrevious,
-                                        contentDescription = "Previous",
-                                        tint = Color.White
-                                    )
                                 }
 
-                                IconButton(onClick = {
-                                    if (isPlaying) {
-                                        exoPlayer.pause()
-                                    } else {
-                                        exoPlayer.play()
-                                    }
-                                }) {
-                                    Icon(
-                                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                        contentDescription = if (isPlaying) "Pause" else "Play",
-                                        tint = Color.White
-                                    )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(text = formatTime(currentPosition), color = Color.White)
+                                    Text(text = formatTime(totalDuration), color = Color.White)
                                 }
 
-                                IconButton(onClick = {
-                                    if (currentIndex < musicList.size - 1) {
-                                        currentMusicState = musicList[currentIndex + 1]
-                                        val mediaItem = MediaItem.fromUri(currentMusicState.uri)
-                                        exoPlayer.setMediaItem(mediaItem)
-                                        exoPlayer.prepare()
-                                        exoPlayer.play()
-                                        onMusicChanged(currentMusicState)
-                                    }
-                                }) {
-                                    Icon(
-                                        imageVector = Icons.Default.SkipNext,
-                                        contentDescription = "Next",
-                                        tint = Color.White
+                                Slider(
+                                    value = if (totalDuration > 0) currentPosition.toFloat() / totalDuration.toFloat() else 0f,
+                                    onValueChange = { exoPlayer.seekTo((it * totalDuration).toLong()) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = Color.White,
+                                        activeTrackColor = Color.White,
+                                        inactiveTrackColor = Color.Gray
                                     )
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    IconButton(onClick = {
+                                        if (currentIndex > 0) {
+                                            currentMusicState = musicList[currentIndex - 1]
+                                            val mediaItem = MediaItem.Builder()
+                                                .setUri(currentMusicState.uri)
+                                                .build()
+                                            exoPlayer.setMediaItem(mediaItem)
+                                            exoPlayer.prepare()
+                                            exoPlayer.play()
+                                            onMusicChanged(currentMusicState)
+                                        }
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Default.SkipPrevious,
+                                            contentDescription = "Previous",
+                                            tint = Color.White
+                                        )
+                                    }
+
+                                    IconButton(onClick = {
+                                        if (isPlaying) {
+                                            exoPlayer.pause()
+                                        } else {
+                                            exoPlayer.play()
+                                        }
+                                    }) {
+                                        Icon(
+                                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                            contentDescription = if (isPlaying) "Pause" else "Play",
+                                            tint = Color.White
+                                        )
+                                    }
+
+                                    IconButton(onClick = {
+                                        if (currentIndex < musicList.size - 1) {
+                                            currentMusicState = musicList[currentIndex + 1]
+                                            val mediaItem = MediaItem.Builder()
+                                                .setUri(currentMusicState.uri)
+                                                .build()
+                                            exoPlayer.setMediaItem(mediaItem)
+                                            exoPlayer.prepare()
+                                            exoPlayer.play()
+                                            onMusicChanged(currentMusicState)
+                                        }
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Default.SkipNext,
+                                            contentDescription = "Next",
+                                            tint = Color.White
+                                        )
+                                    }
+
+                                    IconButton(onClick = {
+                                        showDialog.value = true
+                                    }) {
+                                        Icon(
+                                            imageVector = Icons.Default.Speed,
+                                            contentDescription = "Speed",
+                                            tint = Color.White
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -280,6 +282,8 @@ fun MusicControlBar(
             }
         }
     }
+
+    SpeedControlDialog(exoPlayer = exoPlayer as ExoPlayer, showDialog = showDialog)
 }
 
 fun formatTime(ms: Long): String {
@@ -287,4 +291,3 @@ fun formatTime(ms: Long): String {
     val seconds = (ms / 1000) % 60
     return String.format("%02d:%02d", minutes, seconds)
 }
-
