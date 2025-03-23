@@ -1,13 +1,11 @@
 package ir.sajjadasadi.RitmoPlayer
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -42,6 +40,7 @@ fun TopBar(
     onLoopToggle: () -> Unit,
     onSearchToggle: () -> Unit,
     onSortOptionSelected: (SortOption) -> Unit
+
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -52,13 +51,7 @@ fun TopBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onShuffleToggle) {
-            Icon(
-                imageVector = Icons.Default.Shuffle,
-                contentDescription = "Shuffle",
-                tint = if (isShuffling) Gold else MaterialTheme.colorScheme.onSurface
-            )
-        }
+
 
         IconButton(onClick = { expanded = true }) {
             Icon(
@@ -81,13 +74,20 @@ fun TopBar(
             }, leadingIcon = {
                 Icon(Icons.Default.SortByAlpha, contentDescription = null)
             })
-            DropdownMenuItem(text = { Text("ترتیب بر اساس تاریخ") }, onClick = {
-                expanded = false
-                onSortOptionSelected(SortOption.BY_DATE)
-            }, leadingIcon = {
-                Icon(Icons.Default.DateRange, contentDescription = null)
-            })
+
         }
+
+
+
+
+        IconButton(onClick = onShuffleToggle) {
+            Icon(
+                imageVector = Icons.Default.Shuffle,
+                contentDescription = "Shuffle",
+                tint = if (isShuffling) Gold else MaterialTheme.colorScheme.onSurface
+            )
+        }
+
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(

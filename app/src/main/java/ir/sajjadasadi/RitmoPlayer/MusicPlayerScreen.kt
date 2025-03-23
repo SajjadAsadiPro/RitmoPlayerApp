@@ -1,116 +1,117 @@
 package ir.sajjadasadi.RitmoPlayer
 
+import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.ContentResolver
-import android.content.ContentUris
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
-import android.provider.MediaStore
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.edit
 import coil.compose.AsyncImage
-import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
-import com.google.android.exoplayer2.Player
 import com.google.android.exoplayer2.SimpleExoPlayer
 
 @Composable
-fun MusicPlayerScreen(contentResolver: ContentResolver) {
-    val initialMusicList = loadMusic(contentResolver).sortedBy { it.date }.toMutableList()
+fun MusicPlayerScreen(context: Context, contentResolver: ContentResolver) {
+    val initialMusicList = loadMusic(contentResolver, context).sortedBy { it.date }.toMutableList()
     var musicList by remember { mutableStateOf(initialMusicList) }
-    val context = LocalContext.current
+    var displayedMusicList by remember { mutableStateOf(initialMusicList.toMutableList()) }
+
+    val preferences = context.getSharedPreferences("ritmo_player_prefs", Context.MODE_PRIVATE)
     val exoPlayer = remember { SimpleExoPlayer.Builder(context).build() }
     var currentMusic by remember { mutableStateOf<MusicItem?>(null) }
     var isLooping by remember { mutableStateOf(false) }
     var isShuffling by remember { mutableStateOf(false) }
     var isReversed by remember { mutableStateOf(false) }
-    var shuffledMusicList by remember { mutableStateOf(musicList.toMutableList()) }
     var searchText by remember { mutableStateOf("") }
     var isSearchVisible by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var musicToDelete by remember { mutableStateOf<MusicItem?>(null) }
     var sortOption by remember { mutableStateOf(SortOption.BY_DATE) }
+    var musicToDelete by remember { mutableStateOf<MusicItem?>(null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var showRatingDialog by remember { mutableStateOf(false) }
+    var hasUserGivenFeedback by remember { mutableStateOf(preferences.getBoolean("hasUserGivenFeedback", false)) }
+
+    BackHandler(enabled = !hasUserGivenFeedback) {
+        showRatingDialog = true
+    }
+
+    BackHandler(enabled = hasUserGivenFeedback) {
+        (context as? Activity)?.finish()
+    }
+
+    RatingDialog(
+        showDialog = showRatingDialog,
+        onDismiss = { showRatingDialog = false },
+        onFeedbackGiven = {
+            hasUserGivenFeedback = true
+            preferences.edit { putBoolean("hasUserGivenFeedback", true) }
+        }
+    )
 
     val listState = rememberLazyListState()
 
+    LaunchedEffect(sortOption, isReversed, isShuffling) {
+        val sortedList = when (sortOption) {
+            SortOption.BY_NAME -> musicList.sortedBy { it.title?.trim() ?: "" }
+            SortOption.BY_DATE -> musicList.sortedBy { it.date }
+        }
+
+        val finalList = if (isReversed) sortedList.reversed() else sortedList
+        displayedMusicList =
+            if (isShuffling) finalList.shuffled().toMutableList() else finalList.toMutableList()
+    }
+
     LaunchedEffect(currentMusic) {
-        currentMusic?.let { music ->
-            val index = shuffledMusicList.indexOf(music)
+        currentMusic?.let {
+            val index = displayedMusicList.indexOf(it)
             if (index != -1) {
                 listState.animateScrollToItem(index)
             }
         }
     }
 
-    LaunchedEffect(isLooping) {
-        exoPlayer.repeatMode =
-            if (isLooping) ExoPlayer.REPEAT_MODE_ONE else ExoPlayer.REPEAT_MODE_OFF
-    }
-
-    LaunchedEffect(isShuffling) {
-        shuffledMusicList =
-            if (isShuffling) musicList.shuffled().toMutableList() else musicList.toMutableList()
-    }
-
-    LaunchedEffect(isReversed) {
-        shuffledMusicList =
-            if (isReversed) musicList.reversed().toMutableList() else musicList.toMutableList()
-    }
-
-    LaunchedEffect(sortOption) {
-        shuffledMusicList = when (sortOption) {
-            SortOption.BY_NAME -> musicList.sortedBy { it.title }.toMutableList()
-            SortOption.BY_DATE -> musicList.sortedBy { it.date }.toMutableList()
-            else -> musicList.toMutableList()
-        }
-    }
-
-    DisposableEffect(Unit) {
-        exoPlayer.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) {
-                    val filteredMusicList = getFilteredMusicList(shuffledMusicList, searchText)
-                    val currentIndex = filteredMusicList.indexOf(currentMusic)
-                    if (currentIndex != -1 && currentIndex < filteredMusicList.size - 1) {
-                        val nextMusic = filteredMusicList[currentIndex + 1]
-                        currentMusic = nextMusic
-                        val mediaItem = MediaItem.fromUri(nextMusic.uri)
-                        exoPlayer.setMediaItem(mediaItem)
-                        exoPlayer.prepare()
-                        exoPlayer.play()
-                    }
-                }
-            }
-        })
-        onDispose { exoPlayer.release() }
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         currentMusic?.let {
             Crossfade(
-                targetState = it.albumArtUri,
+                targetState = it.albumCover,
                 animationSpec = tween(durationMillis = 1000)
-            ) { albumArtUri ->
+            ) { albumCover ->
                 AsyncImage(
-                    model = albumArtUri ?: Uri.EMPTY,
+                    model = albumCover ?: R.drawable.musicico,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
@@ -129,42 +130,11 @@ fun MusicPlayerScreen(contentResolver: ContentResolver) {
                 isReversed = isReversed,
                 isLooping = isLooping,
                 isSearchVisible = isSearchVisible,
-                onShuffleToggle = {
-                    isShuffling = !isShuffling
-                    Toast.makeText(
-                        context,
-                        if (isShuffling) "Shuffle Enabled" else "Shuffle Disabled",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                },
-                onReverseToggle = {
-                    isReversed = !isReversed
-                    Toast.makeText(
-                        context,
-                        if (isReversed) "Reverse Enabled" else "Reverse Disabled",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                },
-                onLoopToggle = {
-                    isLooping = !isLooping
-                    Toast.makeText(
-                        context,
-                        if (isLooping) "Loop Enabled" else "Loop Disabled",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                },
-                onSearchToggle = {
-                    isSearchVisible = !isSearchVisible
-                    Toast.makeText(
-                        context,
-                        if (isSearchVisible) "Search Enabled" else "Search Disabled",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                },
-                onSortOptionSelected = { option ->
-                    sortOption = option
-                    Toast.makeText(context, "Sorted by ${option.name}", Toast.LENGTH_SHORT).show()
-                }
+                onShuffleToggle = { isShuffling = !isShuffling },
+                onReverseToggle = { isReversed = !isReversed },
+                onLoopToggle = { isLooping = !isLooping },
+                onSearchToggle = { isSearchVisible = !isSearchVisible },
+                onSortOptionSelected = { option -> sortOption = option }
             )
 
             SearchBar(
@@ -172,7 +142,7 @@ fun MusicPlayerScreen(contentResolver: ContentResolver) {
                 searchText = searchText,
                 onSearchTextChange = { searchText = it })
 
-            val filteredMusicList = getFilteredMusicList(shuffledMusicList, searchText)
+            val filteredMusicList = getFilteredMusicList(displayedMusicList, searchText)
 
             LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
                 items(filteredMusicList) { music ->
@@ -195,153 +165,149 @@ fun MusicPlayerScreen(contentResolver: ContentResolver) {
                 }
             }
 
-            currentMusic?.let {
-                MusicControlBar(
-                    currentMusic = it,
-                    exoPlayer = exoPlayer,
-                    musicList = shuffledMusicList,
-                    isLooping = isLooping,
-                    isShuffling = isShuffling,
-                    onLoopToggle = { isLooping = !isLooping },
-                    onShuffleToggle = { isShuffling = !isShuffling },
-                    onMusicChanged = { newMusic -> currentMusic = newMusic }
-                )
-            }
-
-            fun getContentUriFromFilePath(context: Context, filePath: String): Uri? {
-                val contentResolver = context.contentResolver
-                val projection = arrayOf(MediaStore.Audio.Media._ID)
-                val selection = MediaStore.Audio.Media.DATA + "=?"
-                val selectionArgs = arrayOf(filePath)
-
-                val cursor = contentResolver.query(
-                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
-                    projection,
-                    selection,
-                    selectionArgs,
-                    null
-                )
-
-                return cursor?.use {
-                    if (it.moveToFirst()) {
-                        val id = it.getLong(it.getColumnIndexOrThrow(MediaStore.Audio.Media._ID))
-                        ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
-                    } else {
-                        null
-                    }
-                }
-            }
-
-            if (showDeleteDialog && musicToDelete != null) {
+            if (showDeleteDialog) {
                 DeleteConfirmationDialog(
                     onConfirm = {
-                        val music = musicToDelete
-                        if (music != null) {
-                            try {
-                                val filePath = music.uri.path
-                                if (filePath != null) {
-                                    val contentUri = getContentUriFromFilePath(context, filePath)
-                                    if (contentUri != null) {
-                                        val deletedRows =
-                                            contentResolver.delete(contentUri, null, null)
-                                        if (deletedRows > 0) {
-                                            Toast.makeText(
-                                                context,
-                                                "موزیک حذف شد",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-
-                                            val filteredMusicList =
-                                                getFilteredMusicList(shuffledMusicList, searchText)
-
-                                            val currentIndex = filteredMusicList.indexOf(music)
-                                            musicList.remove(music)
-                                            shuffledMusicList =
-                                                if (isShuffling) musicList.shuffled()
-                                                    .toMutableList() else musicList.toMutableList()
-                                            shuffledMusicList = when (sortOption) {
-                                                SortOption.BY_NAME -> shuffledMusicList.sortedBy { it.title }
-                                                    .toMutableList()
-
-                                                SortOption.BY_DATE -> shuffledMusicList.sortedBy { it.date }
-                                                    .toMutableList()
-
-                                                else -> shuffledMusicList
-                                            }
-
-                                            // اگر آهنگ حذف‌شده در حال پخش بود، آهنگ بعدی را پخش کن
-                                            if (currentMusic == music) {
-                                                val nextMusicIndex = currentIndex + 1
-                                                if (nextMusicIndex < filteredMusicList.size) {
-                                                    val nextMusic =
-                                                        filteredMusicList[nextMusicIndex]
-                                                    currentMusic = nextMusic
-                                                    val mediaItem = MediaItem.fromUri(nextMusic.uri)
-                                                    exoPlayer.setMediaItem(mediaItem)
-                                                    exoPlayer.prepare()
-                                                    exoPlayer.play()
-                                                } else {
-                                                    currentMusic = null
-                                                    exoPlayer.stop()
-                                                }
-                                            }
-                                        } else {
-                                            Toast.makeText(
-                                                context,
-                                                "خطا در حذف موزیک: دسترسی نامعتبر",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
-                                    } else {
-                                        Toast.makeText(
-                                            context,
-                                            "خطا: فایل نامعتبر است",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                    }
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        "خطا: مسیر فایل نامعتبر است",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            } catch (e: SecurityException) {
-                                Toast.makeText(
-                                    context,
-                                    "خطا: دسترسی لازم برای حذف وجود ندارد",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            } catch (e: Exception) {
-                                Toast.makeText(
-                                    context,
-                                    "خطا در حذف موزیک: ${e.localizedMessage}",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
+                        if (musicToDelete == currentMusic) {
+                            val currentIndex = displayedMusicList.indexOf(musicToDelete)
+                            val nextMusic = displayedMusicList.getOrNull(currentIndex + 1) // گرفتن موزیک بعدی
+                            currentMusic = nextMusic // تنظیم موزیک بعدی
+                            nextMusic?.let {
+                                val mediaItem = MediaItem.fromUri(it.uri)
+                                exoPlayer.setMediaItem(mediaItem)
+                                exoPlayer.prepare()
+                                exoPlayer.play()
+                            } ?: exoPlayer.stop() // اگر موزیک بعدی نبود، پخش متوقف شود
                         }
+
+                        musicList = musicList.filter { it != musicToDelete }.toMutableList()
+                        displayedMusicList = displayedMusicList.filter { it != musicToDelete }.toMutableList()
                         showDeleteDialog = false
                     },
                     onDismiss = { showDeleteDialog = false }
                 )
             }
+
+            currentMusic?.let {
+                MusicControlBar(
+                    currentMusic = it,
+                    exoPlayer = exoPlayer,
+                    musicList = displayedMusicList,
+                    isLooping = isLooping,
+                    isShuffling = isShuffling,
+                    onLoopToggle = { isLooping = !isLooping },
+                    onShuffleToggle = { isShuffling = !isShuffling },
+                    onMusicChanged = { newMusic ->
+                        currentMusic = newMusic
+                    }
+                )
+            }
         }
     }
 }
 
-fun getFilteredMusicList(shuffledMusicList: List<MusicItem>, searchText: String): List<MusicItem> {
-    return if (searchText.isEmpty()) {
-        shuffledMusicList
-    } else {
-        shuffledMusicList.filter {
-            it.title.contains(searchText, ignoreCase = true) ||
-                    it.artist.contains(searchText, ignoreCase = true)
-        }
+@Composable
+fun RatingDialog(
+    showDialog: Boolean,
+    onDismiss: () -> Unit,
+    onFeedbackGiven: () -> Unit
+) {
+    var rating by remember { mutableStateOf(0) }
+    var feedback by remember { mutableStateOf("") }
+    val context = LocalContext.current
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = { onDismiss() },
+            title = { Text("امتیاز شما به برنامه") },
+            text = {
+                Column {
+                    Row(horizontalArrangement = Arrangement.Center, modifier = Modifier.fillMaxWidth()) {
+                        for (i in 1..5) {
+                            IconButton(onClick = { rating = i }) {
+                                Icon(
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = null,
+                                    tint = if (i <= rating) Color.Yellow else Color.Gray
+                                )
+                            }
+                        }
+                    }
+
+                    if (rating in 1..4) {
+                        OutlinedTextField(
+                            value = feedback,
+                            onValueChange = { feedback = it },
+                            label = { Text("نظر خود را بنویسید") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (rating in 1..4) {
+                        sendWhatsApp(context, feedback)
+                    } else if (rating == 5) {
+                        openBazaarReview(context)
+                    }
+                    onFeedbackGiven()
+                    onDismiss()
+                }) {
+                    Text(if (rating in 1..4) "ارسال نظر" else "رفتن به کافه بازار")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        onFeedbackGiven()
+                        onDismiss()
+                    }
+                ) {
+                    Text("انصراف", color = Color.White)
+                }
+            }
+        )
+    }
+}
+
+fun sendWhatsApp(context: Context, feedback: String) {
+    val phoneNumber = "+989931443876"
+    val message = feedback
+    val intent = Intent(Intent.ACTION_VIEW).apply {
+        data = Uri.parse("https://api.whatsapp.com/send?phone=$phoneNumber&text=${Uri.encode(message)}")
+    }
+    try {
+        context.startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(context, "واتساپ نصب نیست!", Toast.LENGTH_SHORT).show()
+    }
+}
+
+fun openBazaarReview(context: Context) {
+    val intent = Intent(Intent.ACTION_EDIT).apply {
+        data = Uri.parse("bazaar://details?id=ir.sajjadasadi.RitmoPlayer")
+        setPackage("com.farsitel.bazaar")
+    }
+    try {
+        context.startActivity(intent)
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(context, "کافه بازار نصب نیست!", Toast.LENGTH_SHORT).show()
     }
 }
 
 enum class SortOption {
-    NONE,
     BY_NAME,
     BY_DATE
+}
+
+fun getFilteredMusicList(displayedMusicList: List<MusicItem>, searchText: String): List<MusicItem> {
+    return if (searchText.isEmpty()) {
+        displayedMusicList
+    } else {
+        displayedMusicList.filter {
+            it.title.contains(searchText, ignoreCase = true) ||
+                    it.artist.contains(searchText, ignoreCase = true)
+        }
+    }
 }

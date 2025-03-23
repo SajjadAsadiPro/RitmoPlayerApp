@@ -1,5 +1,5 @@
 package ir.sajjadasadi.RitmoPlayer
-
+/*
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -35,4 +35,4 @@ fun PermissionDialog(onRequestPermission: () -> Unit) {
         textContentColor = Color.White,
         tonalElevation = 8.dp
     )
-}
+}*/

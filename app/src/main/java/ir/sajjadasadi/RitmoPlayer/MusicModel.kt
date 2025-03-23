@@ -1,13 +1,13 @@
 package ir.sajjadasadi.RitmoPlayer
 
-import android.net.Uri
+import android.graphics.Bitmap
 import java.util.Date
 
 data class MusicItem(
     val id: Long,
     val title: String,
     val artist: String,
-    val uri: Uri,
-    val albumArtUri: Uri?,
+    val uri: String,
+    val albumCover: Bitmap? = null,
     val date: Date
 )

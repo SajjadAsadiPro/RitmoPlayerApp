@@ -1,21 +1,26 @@
 package ir.sajjadasadi.RitmoPlayer
 
 import SpeedControlDialog
+import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -41,16 +46,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.Player
 import kotlinx.coroutines.delay
-
 
 @Composable
 fun MusicControlBar(
@@ -73,7 +82,7 @@ fun MusicControlBar(
 
     LaunchedEffect(currentMusic) {
         currentMusicState = currentMusic
-        isControlVisible = true // وقتی آهنگ جدید انتخاب میشه، کنترل باکس بالا میاد
+        isControlVisible = true
     }
 
     val currentIndex = musicList.indexOf(currentMusicState)
@@ -93,13 +102,25 @@ fun MusicControlBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)), // اعمال رنگ پس‌زمینه مشابه کنترل باکس
+            .graphicsLayer {
+                alpha = 0.8f
+                shadowElevation = 8.dp.toPx()
+                shape = RoundedCornerShape(16.dp)
+                clip = true
+            }
+            .background(
+                brush = Brush.linearGradient(
+                    colors = listOf(Color(0xFF6A1B9A), Color(0xFF8E24AA)),
+                    start = Offset(0f, 0f),
+                    end = Offset(1000f, 1000f)
+                )
+            ),
         contentAlignment = Alignment.BottomCenter
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)) // اصلاح بک‌گراند
+                .background(Color.Transparent)
         ) {
             Column(
                 modifier = Modifier
@@ -132,7 +153,7 @@ fun MusicControlBar(
                                     colors = listOf(
                                         Color(0xFF6A1B9A),
                                         Color(0xFF8E24AA)
-                                    ), // رنگ گرادینت
+                                    ),
                                     start = Offset(0f, 0f),
                                     end = Offset(1000f, 1000f)
                                 ), CircleShape
@@ -148,11 +169,11 @@ fun MusicControlBar(
 
                 AnimatedVisibility(
                     visible = isControlVisible,
-                    enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
-                    exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+                    enter = fadeIn(animationSpec = tween(durationMillis = 250)) + slideInVertically(initialOffsetY = { it / 2 }),
+                    exit = fadeOut(animationSpec = tween(durationMillis = 250)) + slideOutVertically(targetOffsetY = { it / 2 }),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)) // همان رنگ پس‌زمینه
+                        .background(Color.Transparent)
                 ) {
                     Column(
                         modifier = Modifier
@@ -160,43 +181,44 @@ fun MusicControlBar(
                             .animateContentSize(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Card(
+                        Box(
+                            contentAlignment = Alignment.Center,
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .animateContentSize(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(
-                                    alpha = 0.8f
+                                .fillMaxWidth(0.8f)
+                                .padding(16.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(Color.Transparent)
+                                .shadow(8.dp, RoundedCornerShape(24.dp))
+                        ) {
+                            currentMusicState.albumCover?.let { albumCover ->
+                                Image(
+                                    bitmap = albumCover.asImageBitmap(),
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    contentScale = ContentScale.Crop
                                 )
-                            )
+                            }
+                        }
+
+
+
+                        Text(
+                            text = currentMusicState.artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.LightGray,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(8.dp)
                         )
-                        {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = currentMusicState.artist,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = Color.LightGray,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
 
-                                    }
-                                }
-
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(text = formatTime(currentPosition), color = Color.White)
-                                    Text(text = formatTime(totalDuration), color = Color.White)
-                                }
-
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.9f)
+                                .padding(vertical = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Box(modifier = Modifier.fillMaxWidth().height(48.dp)) {
+                                Equalizer(isPlaying = isPlaying)
                                 Slider(
                                     value = if (totalDuration > 0) currentPosition.toFloat() / totalDuration.toFloat() else 0f,
                                     onValueChange = { exoPlayer.seekTo((it * totalDuration).toLong()) },
@@ -207,61 +229,105 @@ fun MusicControlBar(
                                         inactiveTrackColor = Color.Gray
                                     )
                                 )
+                            }
+                        }
+
+
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateContentSize(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color.Transparent
+                            )
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(text = formatTime(currentPosition), color = Color.White)
+                                    Text(text = formatTime(totalDuration), color = Color.White)
+                                }
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.Center,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    IconButton(onClick = {
-                                        if (currentIndex > 0) {
-                                            currentMusicState = musicList[currentIndex - 1]
-                                            val mediaItem = MediaItem.Builder()
-                                                .setUri(currentMusicState.uri)
-                                                .build()
-                                            exoPlayer.setMediaItem(mediaItem)
-                                            exoPlayer.prepare()
-                                            exoPlayer.play()
-                                            onMusicChanged(currentMusicState)
-                                        }
-                                    }) {
+                                    IconButton(
+                                        onClick = {
+                                            if (currentIndex > 0) {
+                                                val previousMusic = musicList[currentIndex - 1]
+                                                val mediaItem = MediaItem.Builder()
+                                                    .setUri(previousMusic.uri)
+                                                    .build()
+                                                exoPlayer.setMediaItem(mediaItem)
+                                                exoPlayer.prepare()
+                                                exoPlayer.play()
+                                                onMusicChanged(previousMusic)
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .background(
+                                                Color.White.copy(alpha = 0.8f), CircleShape
+                                            )
+                                            .padding(8.dp)
+                                    ) {
                                         Icon(
                                             imageVector = Icons.Default.SkipPrevious,
                                             contentDescription = "Previous",
-                                            tint = Color.White
+                                            tint = Color.Black
                                         )
                                     }
 
-                                    IconButton(onClick = {
-                                        if (isPlaying) {
-                                            exoPlayer.pause()
-                                        } else {
-                                            exoPlayer.play()
-                                        }
-                                    }) {
+                                    IconButton(
+                                        onClick = {
+                                            if (isPlaying) {
+                                                exoPlayer.pause()
+                                            } else {
+                                                exoPlayer.play()
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .size(64.dp)
+                                            .background(
+                                                Color.White, CircleShape
+                                            )
+                                            .padding(8.dp)
+                                    ) {
                                         Icon(
                                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                                             contentDescription = if (isPlaying) "Pause" else "Play",
-                                            tint = Color.White
+                                            tint = Color.Black
                                         )
                                     }
 
-                                    IconButton(onClick = {
-                                        if (currentIndex < musicList.size - 1) {
-                                            currentMusicState = musicList[currentIndex + 1]
-                                            val mediaItem = MediaItem.Builder()
-                                                .setUri(currentMusicState.uri)
-                                                .build()
-                                            exoPlayer.setMediaItem(mediaItem)
-                                            exoPlayer.prepare()
-                                            exoPlayer.play()
-                                            onMusicChanged(currentMusicState)
-                                        }
-                                    }) {
+                                    IconButton(
+                                        onClick = {
+                                            if (currentIndex < musicList.size - 1) {
+                                                val nextMusic = musicList[currentIndex + 1]
+                                                val mediaItem = MediaItem.Builder()
+                                                    .setUri(nextMusic.uri)
+                                                    .build()
+                                                exoPlayer.setMediaItem(mediaItem)
+                                                exoPlayer.prepare()
+                                                exoPlayer.play()
+                                                onMusicChanged(nextMusic)
+                                            }
+                                        },
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .background(
+                                                Color.White.copy(alpha = 0.8f), CircleShape
+                                            )
+                                            .padding(8.dp)
+                                    ) {
                                         Icon(
                                             imageVector = Icons.Default.SkipNext,
                                             contentDescription = "Next",
-                                            tint = Color.White
+                                            tint = Color.Black
                                         )
                                     }
 
@@ -286,6 +352,7 @@ fun MusicControlBar(
     SpeedControlDialog(exoPlayer = exoPlayer as ExoPlayer, showDialog = showDialog)
 }
 
+@SuppressLint("DefaultLocale")
 fun formatTime(ms: Long): String {
     val minutes = (ms / 1000) / 60
     val seconds = (ms / 1000) % 60
