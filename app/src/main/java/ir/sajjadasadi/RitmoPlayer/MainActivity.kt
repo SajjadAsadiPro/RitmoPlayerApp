@@ -1,6 +1,5 @@
 package ir.sajjadasadi.RitmoPlayer
 
-import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -16,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.net.toUri
 import ir.sajjadasadi.RitmoPlayer.ui.theme.MyApplicationTheme
 
@@ -69,12 +69,12 @@ fun RequestPermissionAndShowMusicScreen() {
 
     // نمایش صفحه پلیر در صورت دریافت مجوزها
     if (permissionGranted && (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || manageStoragePermissionGranted)) {
-        MusicPlayerScreen(context = context, contentResolver = context.contentResolver)
+        MusicPlayerScreen(contentResolver = context.contentResolver)
     }
 }
 
 // راه‌اندازی مجدد اپلیکیشن
-fun restartApp(context: Context) {
+fun restartApp(context: android.content.Context) {
     val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
     intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
     context.startActivity(intent)

@@ -46,11 +46,12 @@ import com.google.android.exoplayer2.MediaItem
 import com.google.android.exoplayer2.SimpleExoPlayer
 
 @Composable
-fun MusicPlayerScreen(context: Context, contentResolver: ContentResolver) {
-    val initialMusicList = loadMusic(contentResolver, context).sortedBy { it.date }.toMutableList()
+fun MusicPlayerScreen(contentResolver: ContentResolver) {
+    val initialMusicList = loadMusic(contentResolver).sortedBy { it.date }.toMutableList()
     var musicList by remember { mutableStateOf(initialMusicList) }
     var displayedMusicList by remember { mutableStateOf(initialMusicList.toMutableList()) }
 
+    val context = LocalContext.current
     val preferences = context.getSharedPreferences("ritmo_player_prefs", Context.MODE_PRIVATE)
     val exoPlayer = remember { SimpleExoPlayer.Builder(context).build() }
     var currentMusic by remember { mutableStateOf<MusicItem?>(null) }
@@ -107,11 +108,11 @@ fun MusicPlayerScreen(context: Context, contentResolver: ContentResolver) {
     Box(modifier = Modifier.fillMaxSize()) {
         currentMusic?.let {
             Crossfade(
-                targetState = it.albumCover,
+                targetState = it.albumArtUri,
                 animationSpec = tween(durationMillis = 1000)
-            ) { albumCover ->
+            ) { albumArtUri ->
                 AsyncImage(
-                    model = albumCover ?: R.drawable.musicico,
+                    model = albumArtUri ?: Uri.EMPTY,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
@@ -151,7 +152,7 @@ fun MusicPlayerScreen(context: Context, contentResolver: ContentResolver) {
                         isPlaying = currentMusic == music,
                         onClick = {
                             currentMusic = music
-                            val mediaItem = MediaItem.fromUri(music.uri)
+                            val mediaItem = MediaItem.fromUri(music.uri ?: Uri.EMPTY)
                             exoPlayer.setMediaItem(mediaItem)
                             exoPlayer.prepare()
                             exoPlayer.play()
@@ -173,7 +174,7 @@ fun MusicPlayerScreen(context: Context, contentResolver: ContentResolver) {
                             val nextMusic = displayedMusicList.getOrNull(currentIndex + 1) // گرفتن موزیک بعدی
                             currentMusic = nextMusic // تنظیم موزیک بعدی
                             nextMusic?.let {
-                                val mediaItem = MediaItem.fromUri(it.uri)
+                                val mediaItem = MediaItem.fromUri(it.uri ?: Uri.EMPTY)
                                 exoPlayer.setMediaItem(mediaItem)
                                 exoPlayer.prepare()
                                 exoPlayer.play()
@@ -201,6 +202,15 @@ fun MusicPlayerScreen(context: Context, contentResolver: ContentResolver) {
                         currentMusic = newMusic
                     }
                 )
+            }
+        }
+    }
+
+    LaunchedEffect(currentMusic) {
+        currentMusic?.let { newMusic ->
+            val index = displayedMusicList.indexOf(newMusic)
+            if (index != -1) {
+                listState.animateScrollToItem(index)
             }
         }
     }

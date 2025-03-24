@@ -48,7 +48,7 @@ fun MusicItemView(music: MusicItem, isPlaying: Boolean, onClick: () -> Unit, onD
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 AsyncImage(
-                    model = music.albumCover ?: R.drawable.musicico, // در صورت عدم وجود Uri، تصویر پیش‌فرض نمایش داده شود
+                    model = music.albumArtUri ?: R.drawable.musicico, // در صورت عدم وجود Uri، تصویر پیش‌فرض نمایش داده شود
                     contentDescription = "Album Art",
                     modifier = Modifier
                         .size(48.dp)
